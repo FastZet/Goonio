@@ -11,6 +11,7 @@ dependencies = [
     "asyncio",            # Core library for running async code.
     "bencode-py",         # Used for parsing torrent file data if needed.
     "beautifulsoup4",     # Essential for parsing HTML from websites.
+    "curl-cffi",          # For Cloudflare.
     "fastapi",            # The web framework for our addon's API.
     "gunicorn",           # A production-grade server to run our FastAPI app on Render.
     "jinja2",             # For the HTML configuration page.
