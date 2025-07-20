@@ -1,8 +1,18 @@
 import uvicorn
 import time
+import sys
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+
+# This block MUST run before the app is defined
+# It checks if Gunicorn is running the app and disables its noisy loggers
+if "gunicorn" in sys.modules:
+    gunicorn_error_logger = logging.getLogger("gunicorn.error")
+    gunicorn_error_logger.setLevel(logging.CRITICAL)
+    gunicorn_access_logger = logging.getLogger("gunicorn.access")
+    gunicorn_access_logger.setLevel(logging.CRITICAL)
 
 from .core.config import settings
 from .core.logger import setup_logger, logger
@@ -59,11 +69,3 @@ if __name__ == "__main__":
         log_config=None,
         reload=True
     )
-else:
-    # This block is for production on Render (when run by Gunicorn)
-    # Disable Gunicorn's default loggers
-    import logging
-    gunicorn_error_logger = logging.getLogger("gunicorn.error")
-    gunicorn_error_logger.setLevel(logging.CRITICAL)
-    gunicorn_access_logger = logging.getLogger("gunicorn.access")
-    gunicorn_access_logger.setLevel(logging.CRITICAL)
