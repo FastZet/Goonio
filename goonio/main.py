@@ -1,18 +1,8 @@
 import uvicorn
 import time
-import sys
-import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-
-# This block MUST run before the app is defined
-# It checks if Gunicorn is running the app and disables its noisy loggers
-if "gunicorn" in sys.modules:
-    gunicorn_error_logger = logging.getLogger("gunicorn.error")
-    gunicorn_error_logger.setLevel(logging.CRITICAL)
-    gunicorn_access_logger = logging.getLogger("gunicorn.access")
-    gunicorn_access_logger.setLevel(logging.CRITICAL)
 
 from .core.config import settings
 from .core.logger import setup_logger, logger
@@ -33,13 +23,7 @@ app = FastAPI(
     redoc_url=None,
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 @app.middleware("http")
 async def log_requests_middleware(request: Request, call_next):
@@ -48,10 +32,7 @@ async def log_requests_middleware(request: Request, call_next):
     process_time = time.time() - start_time
     
     if not (request.url.path == "/health" and response.status_code == 200):
-        logger.log(
-            "API",
-            f'{request.method} {request.url.path} - {response.status_code} - {process_time:.3f}s'
-        )
+        logger.log("API", f'{request.method} {request.url.path} - {response.status_code} - {process_time:.3f}s')
     
     return response
 
@@ -59,13 +40,14 @@ app.include_router(api_router)
 
 @app.get("/health", tags=["General"])
 async def health_check():
-    return {"status": "ok"}
+    return {"status": "ok"}```
 
-if __name__ == "__main__":
-    uvicorn.run(
-        "goonio.main:app",
-        host=settings.FASTAPI_HOST,
-        port=settings.FASTAPI_PORT,
-        log_config=None,  # <-- THIS IS THE FIX FOR THE LOGS
-        reload=False      # <-- Disabled reload for production
-    )
+---
+
+### 2. The StremThru + WARP Scraping Proxy
+
+This is the key to bypassing Cloudflare. We will add settings for your StremThru instance and route all scraping requests through it.
+
+**Action D: Update `.env-sample` and `goonio/core/config.py`**
+
+First, add the new environment variables to your `.env-sample` file:
