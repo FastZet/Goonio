@@ -56,6 +56,14 @@ if __name__ == "__main__":
         "goonio.main:app",
         host=settings.FASTAPI_HOST,
         port=settings.FASTAPI_PORT,
-        log_config=None,  # <-- THIS IS THE FIX FOR THE LOGS
-        reload=False      # <-- Disabled reload for production
+        log_config=None,
+        reload=True
     )
+else:
+    # This block is for production on Render (when run by Gunicorn)
+    # Disable Gunicorn's default loggers
+    import logging
+    gunicorn_error_logger = logging.getLogger("gunicorn.error")
+    gunicorn_error_logger.setLevel(logging.CRITICAL)
+    gunicorn_access_logger = logging.getLogger("gunicorn.access")
+    gunicorn_access_logger.setLevel(logging.CRITICAL)
