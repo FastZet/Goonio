@@ -4,35 +4,38 @@ from typing import List, Dict
 
 from ..core.logger import logger
 
-BASE_URL = "https://sxyprn.net"
-API_BASE_URL = "https://sxyprn.net/api/v1"
+# Correct, working API endpoint
+API_BASE_URL = "https://www.sxyprn.com/api/v2"
 
 async def search(query: str) -> List[Dict]:
     """
     Searches sxyprn.net's API for a given query and returns Stremio meta objects.
     """
-    # Use the API endpoint for search
-    search_url = f"{API_BASE_URL}/search/videos?query={query.replace(' ', '+')}&page=1"
+    # The API uses a 'q' parameter for the query
+    search_url = f"{API_BASE_URL}/videos?q={query.replace(' ', '+')}&page=1"
     metas = []
     
     try:
-        async with aiohttp.ClientSession() as session:
+        # The sxyprn API requires a standard User-Agent header to respond
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+        
+        async with aiohttp.ClientSession(headers=headers) as session:
             async with session.get(search_url) as response:
                 response.raise_for_status()
                 json_data = await response.json()
 
-                # The API returns a list of video objects directly
+                # The API returns a list of video objects directly in the 'data' key
                 for item in json_data.get('data', []):
-                    # The unique identifier is the 'slug'
                     slug = item.get('slug')
                     if not slug:
                         continue
                     
-                    item_id = f"sxyprn_post/{slug}"
+                    # We prefix the slug to create a unique ID for our manager to route correctly
+                    item_id = f"sxyprn_{slug}"
                     
                     metas.append({
                         "id": item_id,
-                        "type": "movie",
+                        "type": "movie", # We treat all scenes as "movies" for Stremio
                         "name": item.get('title'),
                         "poster": item.get('thumb'),
                         "posterShape": "landscape"
@@ -49,14 +52,17 @@ async def search(query: str) -> List[Dict]:
 async def get_streams(item_id: str) -> List[Dict]:
     """
     Fetches stream URLs for a given sxyprn item ID from their API.
-    'item_id' is expected to be in the format 'post/some-video-slug'
+    'item_id' is expected to be in the format 'sxyprn_some-video-slug'
     """
-    # Use the API endpoint for getting post details
-    video_api_url = f"{API_BASE_URL}/{item_id}"
+    # Remove the 'sxyprn_' prefix to get the actual slug
+    slug = item_id.replace("sxyprn_", "")
+    video_api_url = f"{API_BASE_URL}/videos/{slug}"
     streams = []
 
     try:
-        async with aiohttp.ClientSession() as session:
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+        
+        async with aiohttp.ClientSession(headers=headers) as session:
             async with session.get(video_api_url) as response:
                 response.raise_for_status()
                 json_data = await response.json()
