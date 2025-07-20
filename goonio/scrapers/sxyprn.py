@@ -1,82 +1,71 @@
 import aiohttp
-import re
 from base64 import b64encode
-from bs4 import BeautifulSoup
 from typing import List, Dict
 
 from ..core.logger import logger
 
-# The base URL for all requests to sxyprn.net
 BASE_URL = "https://sxyprn.net"
+API_BASE_URL = "https://sxyprn.net/api/v1"
 
 async def search(query: str) -> List[Dict]:
     """
-    Searches sxyprn.net for a given query and returns Stremio meta objects.
+    Searches sxyprn.net's API for a given query and returns Stremio meta objects.
     """
-    # --- THIS IS THE CORRECTED LINE ---
-    search_url = f"{BASE_URL}/{query.replace(' ', '-')}"
-    
+    # Use the API endpoint for search
+    search_url = f"{API_BASE_URL}/search/videos?query={query.replace(' ', '+')}&page=1"
     metas = []
     
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(search_url) as response:
-                response.raise_for_status() # Raise an exception for bad status codes
-                html = await response.text()
-                soup = BeautifulSoup(html, 'html.parser')
+                response.raise_for_status()
+                json_data = await response.json()
 
-                # Find all video containers on the search results page
-                video_items = soup.find_all('div', class_='thumb-pad')
-
-                for item in video_items:
-                    a_tag = item.find('a', href=True)
-                    img_tag = item.find('img', src=True)
-                    title_tag = item.find('p', class_='thumb-title')
-
-                    if not a_tag or not img_tag or not title_tag:
+                # The API returns a list of video objects directly
+                for item in json_data.get('data', []):
+                    # The unique identifier is the 'slug'
+                    slug = item.get('slug')
+                    if not slug:
                         continue
                     
-                    # The path now comes from the href, which is correct
-                    path = a_tag['href'].replace(BASE_URL, '').lstrip('/')
-                    item_id = f"sxyprn_{path}" # Prefix for routing in the manager
+                    item_id = f"sxyprn_post/{slug}"
                     
                     metas.append({
                         "id": item_id,
-                        "type": "movie", # We treat all scenes as "movies" for Stremio
-                        "name": title_tag.text.strip(),
-                        "poster": img_tag['src'],
+                        "type": "movie",
+                        "name": item.get('title'),
+                        "poster": item.get('thumb'),
                         "posterShape": "landscape"
                     })
         
-        logger.log("SCRAPER", f"SXYPRN: Found {len(metas)} results for query '{query}'")
+        logger.log("SCRAPER", f"SXYPRN API: Found {len(metas)} results for query '{query}'")
         return metas
 
     except Exception as e:
-        logger.error(f"SXYPRN: Error during search for '{query}': {e}")
+        logger.error(f"SXYPRN API: Error during search for '{query}': {e}")
         return []
 
 
 async def get_streams(item_id: str) -> List[Dict]:
     """
-    Fetches stream URLs for a given sxyprn item ID.
+    Fetches stream URLs for a given sxyprn item ID from their API.
+    'item_id' is expected to be in the format 'post/some-video-slug'
     """
-    video_url = f"{BASE_URL}/{item_id}"
+    # Use the API endpoint for getting post details
+    video_api_url = f"{API_BASE_URL}/{item_id}"
     streams = []
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(video_url) as response:
+            async with session.get(video_api_url) as response:
                 response.raise_for_status()
-                html = await response.text()
+                json_data = await response.json()
                 
-                match = re.search(r'source src="([^"]+\.m3u8)"', html)
+                # The m3u8 URL is directly in the JSON response
+                m3u8_url = json_data.get('data', {}).get('video_url')
                 
-                if match:
-                    m3u8_url = match.group(1)
-                    
+                if m3u8_url:
                     encoded_url = b64encode(m3u8_url.encode()).decode()
-                    
-                    # We are using a relative URL here, which is fine for Stremio.
                     proxy_url = f"/playback/sxyprn/{encoded_url}.m3u8"
                     
                     streams.append({
@@ -84,12 +73,12 @@ async def get_streams(item_id: str) -> List[Dict]:
                         "title": "Auto Quality",
                         "url": proxy_url,
                     })
-                    logger.log("SCRAPER", f"SXYPRN: Found stream for {item_id}")
+                    logger.log("SCRAPER", f"SXYPRN API: Found stream for {item_id}")
                 else:
-                    logger.warning(f"SXYPRN: No m3u8 URL found on page: {video_url}")
+                    logger.warning(f"SXYPRN API: No video_url found for: {video_api_url}")
 
         return streams
 
     except Exception as e:
-        logger.error(f"SXYPRN: Error getting streams for {item_id}: {e}")
+        logger.error(f"SXYPRN API: Error getting streams for {item_id}: {e}")
         return []
