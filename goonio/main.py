@@ -1,26 +1,25 @@
 import uvicorn
+import time
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 # Import settings and logger from our core module
 from .core.config import settings
 from .core.logger import setup_logger, logger
 
-# Import the API router (we will create this in the next step)
+# Import the API router
 from .api.router import api_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     Asynchronous context manager for FastAPI's lifespan events.
-    This is the preferred way to handle startup and shutdown logic.
+    Handles startup and shutdown logic.
     """
-    # Setup the logger on startup
     setup_logger(level=settings.LOG_LEVEL)
     logger.log("GOONIO", f"Goonio Addon v{settings.ADDON_VERSION} starting up...")
     yield
-    # Any cleanup logic would go here on shutdown
     logger.log("GOONIO", "Goonio Addon shutting down.")
 
 # Initialize the FastAPI application
@@ -29,11 +28,10 @@ app = FastAPI(
     version=settings.ADDON_VERSION,
     description=settings.ADDON_DESCRIPTION,
     lifespan=lifespan,
-    redoc_url=None, # Disable the ReDoc documentation
+    redoc_url=None,
 )
 
-# Add CORS (Cross-Origin Resource Sharing) middleware
-# This is crucial for Stremio web to be able to communicate with the addon
+# Add CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -42,8 +40,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- NEW LOGGING MIDDLEWARE ---
+@app.middleware("http")
+async def log_requests_middleware(request: Request, call_next):
+    """
+    Middleware to log incoming requests, but filter out successful health checks.
+    """
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    
+    # Condition: Do NOT log if the path is /health AND the status code is 200.
+    # All other requests, including failed health checks, will be logged.
+    if not (request.url.path == "/health" and response.status_code == 200):
+        logger.log(
+            "API",
+            f'{request.method} {request.url.path} - {response.status_code} - {process_time:.3f}s'
+        )
+    
+    return response
+
 # Include the main API router
-# All our addon's endpoints (/manifest.json, /stream/..., etc.) will be defined here
 app.include_router(api_router)
 
 @app.get("/health", tags=["General"])
@@ -59,5 +76,5 @@ if __name__ == "__main__":
         "goonio.main:app",
         host=settings.FASTAPI_HOST,
         port=settings.FASTAPI_PORT,
-        reload=True # Reloads the server on code changes
+        reload=True
     )
