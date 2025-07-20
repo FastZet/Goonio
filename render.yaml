@@ -3,9 +3,6 @@ services:
     name: goonio
     runtime: docker
     dockerfilePath: ./Dockerfile
-    healthCheck:
-      path: /health
-      initialDelaySeconds: 45
     envVars:
       - key: PYTHON_VERSION
         value: 3.11
