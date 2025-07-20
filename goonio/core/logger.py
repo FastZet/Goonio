@@ -23,10 +23,15 @@ def setup_logger(level: str = "INFO"):
     """
     logging.basicConfig(handlers=[InterceptHandler()], level=0)
 
-    logger.level("GOONIO", no=50, icon="🌶️", color="<fg #ff4500>")
-    logger.level("API", no=45, icon="🌐", color="<fg #006989>")
-    logger.level("SCRAPER", no=40, icon="🔍", color="<fg #d6bb71>")
-    logger.level("STREAM", no=35, icon="🎬", color="<fg #d171d6>")
+    # Use a try-except block to avoid errors on re-initialization (e.g., during hot-reloads)
+    try:
+        logger.level("GOONIO", no=50, icon="🌶️", color="<fg #ff4500>")
+        logger.level("API", no=45, icon="🌐", color="<fg #006989>")
+        logger.level("SCRAPER", no=40, icon="🔍", color="<fg #d6bb71>")
+        logger.level("STREAM", no=35, icon="🎬", color="<fg #d171d6>")
+    except ValueError:
+        # Levels are already defined, which is fine.
+        pass
 
     log_format = (
         "<white>{time:YYYY-MM-DD HH:mm:ss}</white> | "
@@ -47,5 +52,5 @@ def setup_logger(level: str = "INFO"):
         ]
     )
 
-# Initialize the logger with a default level
-setup_logger()
+# THE LINE BELOW IS THE ONLY CHANGE: IT HAS BEEN REMOVED.
+# setup_logger() 
