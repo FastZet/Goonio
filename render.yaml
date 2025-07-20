@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: goonio
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheck:
+      path: /health
+      initialDelaySeconds: 45
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: UV_VERSION
+        value: 0.2.14
