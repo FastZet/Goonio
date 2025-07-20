@@ -40,14 +40,4 @@ app.include_router(api_router)
 
 @app.get("/health", tags=["General"])
 async def health_check():
-    return {"status": "ok"}```
-
----
-
-### 2. The StremThru + WARP Scraping Proxy
-
-This is the key to bypassing Cloudflare. We will add settings for your StremThru instance and route all scraping requests through it.
-
-**Action D: Update `.env-sample` and `goonio/core/config.py`**
-
-First, add the new environment variables to your `.env-sample` file:
+    return {"status": "ok"}
