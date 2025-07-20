@@ -1,12 +1,10 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from typing import Optional
 
 from ..core.config import settings
 from ..core.logger import logger
-
-# We will create the ScraperManager in the next steps.
-# For now, we are defining how the router will use it.
 from ..scrapers.manager import ScraperManager
+from ..core.stream_handler import handle_stream  # <-- IMPORT THE NEW HANDLER
 
 api_router = APIRouter()
 
@@ -26,17 +24,17 @@ async def get_manifest():
         "logo": settings.ADDON_LOGO,
         "background": settings.ADDON_BACKGROUND,
         "resources": ["catalog", "stream"],
-        "types": ["movie", "series"], # Using movie/series types for broad compatibility
+        "types": ["movie", "series"],
         "catalogs": [
             {
-                "type": "movie", # Use 'movie' type for scenes
+                "type": "movie",
                 "id": "goonio-sxyprn",
                 "name": "SXYPRN",
                 "extra": [{"name": "search", "isRequired": True}],
             }
         ],
         "behaviorHints": {
-            "adult": True, # Mark the addon as containing adult content
+            "adult": True,
             "configurable": False,
             "configurationRequired": False,
         }
@@ -57,8 +55,6 @@ async def get_catalog(type: str, id: str, extra: Optional[str] = None):
         return {"metas": []}
 
     scraper_manager = ScraperManager()
-    
-    # We will implement the scraping logic in the next steps
     metas = await scraper_manager.scrape_catalog(id, query)
 
     return {"metas": metas}
@@ -72,8 +68,15 @@ async def get_streams(type: str, id: str):
     logger.log("API", f"Streams requested for ID: {id}")
 
     scraper_manager = ScraperManager()
-
-    # We will implement the stream scraping logic in the next steps
     streams = await scraper_manager.scrape_streams(id)
     
     return {"streams": streams}
+
+# --- Playback Proxy Endpoint (NEW) ---
+@api_router.get("/playback/{scraper_prefix}/{encoded_url}.m3u8")
+async def get_playback(request: Request, scraper_prefix: str, encoded_url: str):
+    """
+    This endpoint is called by Stremio to play the video.
+    It uses our stream_handler to proxy the video content.
+    """
+    return await handle_stream(request, scraper_prefix, encoded_url)
