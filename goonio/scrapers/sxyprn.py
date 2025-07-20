@@ -13,7 +13,9 @@ async def search(query: str) -> List[Dict]:
     """
     Searches sxyprn.net for a given query and returns Stremio meta objects.
     """
-    search_url = f"{BASE_URL}/search/keyword/{query.replace(' ', '-')}.html"
+    # --- THIS IS THE CORRECTED LINE ---
+    search_url = f"{BASE_URL}/{query.replace(' ', '-')}"
+    
     metas = []
     
     try:
@@ -34,6 +36,7 @@ async def search(query: str) -> List[Dict]:
                     if not a_tag or not img_tag or not title_tag:
                         continue
                     
+                    # The path now comes from the href, which is correct
                     path = a_tag['href'].replace(BASE_URL, '').lstrip('/')
                     item_id = f"sxyprn_{path}" # Prefix for routing in the manager
                     
@@ -66,17 +69,14 @@ async def get_streams(item_id: str) -> List[Dict]:
                 response.raise_for_status()
                 html = await response.text()
                 
-                # The m3u8 URL is often found inside a <script> tag. We use regex to extract it.
-                # This pattern looks for "source src=" followed by a URL ending in .m3u8
                 match = re.search(r'source src="([^"]+\.m3u8)"', html)
                 
                 if match:
                     m3u8_url = match.group(1)
                     
-                    # We must proxy the stream to add the 'Referer' header.
-                    # The URL is base64 encoded to make it URL-safe.
                     encoded_url = b64encode(m3u8_url.encode()).decode()
                     
+                    # We are using a relative URL here, which is fine for Stremio.
                     proxy_url = f"/playback/sxyprn/{encoded_url}.m3u8"
                     
                     streams.append({
