@@ -1,0 +1,22 @@
+[project]
+name = "goonio"
+version = "0.1.0"
+description = "Stremio's finest adult catalog and stream provider."
+authors = [
+    { name = "FastZet", email = "your.email@example.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "aiohttp",            # For making asynchronous HTTP requests (used by scrapers).
+    "asyncio",            # Core library for running async code.
+    "bencode-py",         # Used for parsing torrent file data if needed.
+    "beautifulsoup4",     # Essential for parsing HTML from websites.
+    "fastapi",            # The web framework for our addon's API.
+    "gunicorn",           # A production-grade server to run our FastAPI app on Render.
+    "jinja2",             # For the HTML configuration page.
+    "loguru",             # For powerful and easy logging.
+    "mediaflow-proxy",    # The key library for handling video stream proxying.
+    "orjson",             # A fast JSON library for performance.
+    "pydantic-settings",  # For managing configuration from environment variables.
+    "uvicorn",            # The server that Gunicorn will use to run our FastAPI app.
+]
