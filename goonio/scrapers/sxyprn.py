@@ -4,39 +4,43 @@ from typing import List, Dict
 
 from ..core.logger import logger
 
-# The correct, working API endpoint
-API_BASE_URL = "https://www.sxyprn.com/api/v2"
+# Correct, working API endpoints
+SEARCH_API_URL = "https://api.sxyprn.com/videos/search"
+VIDEO_API_URL = "https://api.sxyprn.com/video/get"
 
-# Headers to impersonate a real browser, crucial for bypassing Cloudflare
+# Headers to impersonate a real browser, crucial for bypassing Cloudflare/API blocks
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36',
     'Accept': 'application/json, text/plain, */*',
-    'Referer': 'https://sxyprn.net/'
+    'Referer': 'https://sxyprn.net/' # Sending the Referer is good practice
 }
 
 async def search(query: str) -> List[Dict]:
     """
-    Searches sxyprn.net's API using curl_cffi to bypass Cloudflare.
+    Searches sxyprn.com's API for a given query and returns Stremio meta objects.
     """
-    search_url = f"{API_BASE_URL}/search/videos?q={query.replace(' ', '+')}&page=1"
+    params = {'query': query, 'page': 1}
     metas = []
     
     try:
         async with AsyncSession(headers=HEADERS, impersonate="chrome110") as session:
-            response = await session.get(search_url)
+            response = await session.get(SEARCH_API_URL, params=params)
             response.raise_for_status()
             json_data = response.json()
 
-            for item in json_data.get('data', []):
-                slug = item.get('slug')
-                if not slug:
+            # The API returns a list of video objects directly in the 'result' key
+            for item in json_data.get('result', []):
+                # The unique identifier is now the 'id' field
+                video_id = item.get('id')
+                if not video_id:
                     continue
                 
-                item_id = f"sxyprn_{slug}"
+                # We prefix the ID to create a unique identifier for our manager
+                item_id = f"sxyprn_{video_id}"
                 
                 metas.append({
                     "id": item_id,
-                    "type": "movie",
+                    "type": "movie", # We treat all scenes as "movies" for Stremio
                     "name": item.get('title'),
                     "poster": item.get('thumb'),
                     "posterShape": "landscape"
@@ -53,18 +57,20 @@ async def search(query: str) -> List[Dict]:
 async def get_streams(item_id: str) -> List[Dict]:
     """
     Fetches stream URLs for a given sxyprn item ID from their API.
+    'item_id' is expected to be in the format 'sxyprn_12345'
     """
-    slug = item_id.replace("sxyprn_", "")
-    video_api_url = f"{API_BASE_URL}/videos/{slug}"
+    video_id = item_id.replace("sxyprn_", "")
+    params = {'id': video_id}
     streams = []
 
     try:
         async with AsyncSession(headers=HEADERS, impersonate="chrome110") as session:
-            response = await session.get(video_api_url)
+            response = await session.get(VIDEO_API_URL, params=params)
             response.raise_for_status()
             json_data = response.json()
             
-            m3u8_url = json_data.get('data', {}).get('video_url')
+            # The m3u8 URL is in a different location in this response
+            m3u8_url = json_data.get('result', {}).get('video_url')
             
             if m3u8_url:
                 encoded_url = b64encode(m3u8_url.encode()).decode()
@@ -77,7 +83,7 @@ async def get_streams(item_id: str) -> List[Dict]:
                 })
                 logger.log("SCRAPER", f"SXYPRN API: Found stream for {item_id}")
             else:
-                logger.warning(f"SXYPRN API: No video_url found for: {video_api_url}")
+                logger.warning(f"SXYPRN API: No video_url found for ID: {video_id}")
 
         return streams
 
