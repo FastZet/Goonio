@@ -66,6 +66,6 @@ if __name__ == "__main__":
         "goonio.main:app",
         host=settings.FASTAPI_HOST,
         port=settings.FASTAPI_PORT,
-        log_config=None,
-        reload=True
+        log_config=None,  # <-- THIS IS THE FIX FOR THE LOGS
+        reload=False      # <-- Disabled reload for production
     )
